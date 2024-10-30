@@ -1,0 +1,28 @@
+# action.yml
+
+name: 'Build and Push Docker Image'
+description: 'Builds a Docker image and pushes it to Docker Hub, then creates a GitHub release and sends Telegram notifications.'
+author: 'Yuri V <yuri.valigursky@gmail.com> (@yuri-val)'
+
+inputs:
+  telegram_to:
+    description: 'Telegram recipient ID'
+    required: true
+  telegram_token:
+    description: 'Telegram bot token'
+    required: true
+  docker_hub_username:
+    description: 'Docker Hub username'
+    required: true
+  docker_hub_access_token:
+    description: 'Docker Hub access token'
+    required: true
+  docker_repo_name:
+    description: 'Docker Hub repository name'
+    required: true
+    default: 'shipvisor'
+
+runs:
+  using: 'composite'
+  steps:
+    # Steps will be defined in the next section
