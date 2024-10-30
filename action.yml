@@ -1,6 +1,6 @@
 # action.yml
 
-name: 'Build and Push Docker Image'
+name: 'Build and Push Docker Image with Release'
 description: 'Builds a Docker image and pushes it to Docker Hub, then creates a GitHub release and sends Telegram notifications.'
 author: 'Yuri V <yuri.valigursky@gmail.com> (@yuri-val)'
 
