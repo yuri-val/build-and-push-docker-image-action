@@ -7,8 +7,11 @@ author: 'Yuri V <yuri.valigursky@gmail.com> (@yuri-val)'
 branding:
   icon: 'upload-cloud'
   color: 'orange'
-  
+
 inputs:
+  github_token:
+    description: 'GitHub token for authentication'
+    required: true
   telegram_to:
     description: 'Telegram recipient/chat ID'
     required: true
@@ -42,6 +45,7 @@ runs:
         message: "💬 <b>STARTED</b>: build <pre>${{ github.repository }}</pre>"
 
     - name: Get Current Date
+      shell: bash
       id: date
       run: echo "date=$(date +'%y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
 
@@ -49,6 +53,7 @@ runs:
       uses: actions/checkout@v4
 
     - name: Get Current Commit SHA
+      shell: bash
       id: get_sha
       run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
