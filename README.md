@@ -13,6 +13,7 @@ This GitHub Action builds a Docker image, pushes it to Docker Hub, creates a Git
 
 | Input | Description | Required |
 |-------|-------------|----------|
+| `github_token` | GitHub token for authentication | Yes |
 | `telegram_to` | Telegram recipient/chat ID | Yes |
 | `telegram_token` | Telegram bot token | Yes |
 | `docker_hub_username` | Docker Hub username | Yes |
