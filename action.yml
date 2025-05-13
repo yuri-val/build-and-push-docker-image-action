@@ -109,6 +109,27 @@ runs:
         echo "$CHANGELOG" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
+    - name: Set up environment for patch generation
+      shell: bash
+      run: |
+        sudo apt-get update || apt-get update
+        sudo apt-get install -y git patch patchutils || apt-get install -y git patch patchutils
+
+    - name: Generate patch file
+      id: generate_patch
+      shell: bash
+      run: |
+        mkdir -p diff
+        if [ -n "${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }}" ]; then
+          echo "Generating patch between previous tag ${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }} and current tag ${{ steps.tag_version.outputs.new_tag }}..."
+          git diff ${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }} ${{ steps.tag_version.outputs.new_tag }} > "diff/${{ env.REPO_NAME }}_${{ steps.date.outputs.date }}.diff"
+          echo "PATCH_PATH=diff/${REPO_NAME}_${{ steps.date.outputs.date }}.diff" >> $GITHUB_OUTPUT
+          echo "PATCH_FILENAME=${REPO_NAME}_${{ steps.date.outputs.date }}.diff" >> $GITHUB_OUTPUT
+          echo "Patch file generated: diff/${REPO_NAME}_${{ steps.date.outputs.date }}.diff"
+        else
+          echo "No previous tag found. Cannot generate patch file."
+        fi
+
     - name: Create a GitHub Release
       uses: ncipollo/release-action@v1
       with:
@@ -116,6 +137,7 @@ runs:
         tag: ${{ steps.tag_version.outputs.new_tag }}
         name: Build ${{ steps.date.outputs.date }}
         body: ${{ steps.generate_changelog.outputs.CHANGELOG }}
+        artifacts: ${{ steps.generate_patch.outputs.PATCH_PATH }}
 
     - name: Send Telegram Message on Success
       if: ${{ success() }}
