@@ -85,6 +85,7 @@ runs:
       with:
         github_token: ${{ inputs.github_token }}
         custom_tag: ${{ steps.date.outputs.date }}
+        tag_prefix: ""
 
     - name: Get previous tag
       id: get_previous_tag
@@ -112,7 +113,7 @@ runs:
       uses: ncipollo/release-action@v1
       with:
         token: ${{ inputs.github_token }}
-        tag: ${{ steps.date.outputs.date }}
+        tag: ${{ steps.tag_version.outputs.new_tag }}
         name: Build ${{ steps.date.outputs.date }}
         body: ${{ steps.generate_changelog.outputs.CHANGELOG }}
 
