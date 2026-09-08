@@ -19,6 +19,7 @@ This GitHub Action builds a Docker image, pushes it to Docker Hub, creates a Git
 | `docker_hub_username` | Docker Hub username | Yes |
 | `docker_hub_access_token` | Docker Hub access token | Yes |
 | `docker_repo_name` | Docker Hub repository name | Yes |
+| `cache_tag` | Tag in the same Docker Hub repository that stores the BuildKit layer cache (`type=registry,mode=max`). Default: `buildcache` | No |
 
 ## Usage
 
@@ -69,6 +70,11 @@ Make sure to set up the following secrets in your repository:
 3. The Docker image is built and pushed to Docker Hub with two tags:
    - A date-based tag (e.g., `23.05.15.1234`)
    - The `latest` tag
+
+   BuildKit layer cache is read from and written to `<docker_hub_username>/<docker_repo_name>:<cache_tag>`
+   (`type=registry,mode=max`), so dependency layers are reused across runs and across
+   runners — GitHub-hosted and self-hosted alike. The tag shows up in Docker Hub next to
+   the image tags; it is not a runnable image.
 4. A new GitHub release is created with an auto-generated changelog.
 5. Telegram notifications are sent at the start of the process, on successful completion, and in case of failure.
 

@@ -25,6 +25,10 @@ inputs:
   docker_repo_name:
     description: 'Docker Hub repository name'
     required: true
+  cache_tag:
+    description: 'Tag in the same Docker Hub repository that stores the BuildKit layer cache (type=registry, mode=max). Shared by every runner that builds this image.'
+    required: false
+    default: 'buildcache'
 
 runs:
   using: 'composite'
@@ -76,8 +80,13 @@ runs:
         build-args: |
           COMMIT_SHA=${{ steps.get_sha.outputs.sha }}
           TAG_VERSION=${{ steps.date.outputs.date }}
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache
+        # Registry cache instead of a local directory. On GitHub-hosted runners /tmp
+        # starts empty, so the old `type=local,src=/tmp/.buildx-cache` never hit and
+        # every build recompiled the dependency layers from scratch (planvisor:
+        # ~5.5 min of a 7.5 min job); on self-hosted runners it grew without bound.
+        # `mode=max` also caches the intermediate stages of multi-stage Dockerfiles.
+        cache-from: type=registry,ref=${{ inputs.docker_hub_username }}/${{ inputs.docker_repo_name }}:${{ inputs.cache_tag }}
+        cache-to: type=registry,ref=${{ inputs.docker_hub_username }}/${{ inputs.docker_repo_name }}:${{ inputs.cache_tag }},mode=max
 
     - name: Bump Version and Push Tag
       id: tag_version
@@ -109,12 +118,10 @@ runs:
         echo "$CHANGELOG" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-    - name: Set up environment for patch generation
-      shell: bash
-      run: |
-        sudo apt-get update || apt-get update
-        sudo apt-get install -y git patch patchutils || apt-get install -y git patch patchutils
-
+    # The patch is a plain `git diff`; git is present on every runner. The former
+    # `sudo apt-get install patch patchutils` step installed tools nothing used,
+    # cost ~20 s on hosted runners and failed outright on self-hosted runners whose
+    # service user has no sudo.
     - name: Generate patch file
       id: generate_patch
       shell: bash
