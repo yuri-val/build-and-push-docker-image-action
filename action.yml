@@ -51,8 +51,18 @@ runs:
       id: date
       run: echo "date=$(date +'%y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
 
+    # fetch-depth: 0 — the release notes below are built from git history, and
+    # this checkout is what decides whether that history exists. It runs AFTER
+    # the caller's own checkout and overrides it, so a workflow that carefully
+    # asks for `fetch-depth: 0` still ended up with a depth-1 repo here (seen on
+    # scg-softo/planvisor and sc_pms, 2026-09-08). With one commit in the
+    # workspace, `git describe <tag>^` fails with "Not a valid object name" and
+    # the changelog degrades to the single merge commit; every release since at
+    # least 2026-08-28 was built that way, on hosted runners too.
     - name: Checkout Repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Get Current Commit SHA
       shell: bash
@@ -88,6 +98,19 @@ runs:
         cache-from: type=registry,ref=${{ inputs.docker_hub_username }}/${{ inputs.docker_repo_name }}:${{ inputs.cache_tag }}
         cache-to: type=registry,ref=${{ inputs.docker_hub_username }}/${{ inputs.docker_repo_name }}:${{ inputs.cache_tag }},mode=max
 
+    # Before the new tag is created, so it does not matter whether that tag has
+    # reached the local repository yet: the most recent tag reachable from HEAD
+    # is the previous release. `HEAD^` rather than `HEAD` so that re-running a
+    # build whose tag already points at HEAD still finds the release before it.
+    - name: Get previous tag
+      id: get_previous_tag
+      shell: bash
+      run: |
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null \
+          || git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
+        echo "Previous tag: ${PREVIOUS_TAG:-none found}"
+        echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
     - name: Bump Version and Push Tag
       id: tag_version
       uses: mathieudutour/github-tag-action@v6.1
@@ -96,22 +119,18 @@ runs:
         custom_tag: ${{ steps.date.outputs.date }}
         tag_prefix: ""
 
-    - name: Get previous tag
-      id: get_previous_tag
-      shell: bash
-      run: |
-        git fetch --tags --force --quiet
-        PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${{ steps.tag_version.outputs.new_tag }}"^ || echo "")
-        echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
-
     - name: Generate changelog
       id: generate_changelog
       shell: bash
       run: |
+        # HEAD, not the new tag: the tag is created through the API a step
+        # earlier and is not necessarily in this clone yet.
+        # --no-merges because "Merge pull request #101 from org/dev" says nothing
+        # a reader of release notes wants; %s keeps one line per change.
         if [ -n "${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }}" ]; then
-          CHANGELOG=$(git log --pretty=format:"- %B" "${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }}..${{ steps.tag_version.outputs.new_tag }}")
+          CHANGELOG=$(git log --no-merges --pretty=format:"- %s" "${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }}..HEAD")
         else
-          CHANGELOG=$(git log --pretty=format:"- %B" "${{ steps.tag_version.outputs.new_tag }}")
+          CHANGELOG=$(git log --no-merges --pretty=format:"- %s" -n 50 HEAD)
         fi
         CHANGELOG=$(echo "$CHANGELOG" | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n\+$/\n/')
         echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
@@ -129,7 +148,7 @@ runs:
         mkdir -p diff
         if [ -n "${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }}" ]; then
           echo "Generating patch between previous tag ${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }} and current tag ${{ steps.tag_version.outputs.new_tag }}..."
-          git diff ${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }} ${{ steps.tag_version.outputs.new_tag }} > "diff/${{ env.REPO_NAME }}_${{ steps.date.outputs.date }}.diff"
+          git diff ${{ steps.get_previous_tag.outputs.PREVIOUS_TAG }} HEAD > "diff/${{ env.REPO_NAME }}_${{ steps.date.outputs.date }}.diff"
           echo "PATCH_PATH=diff/${REPO_NAME}_${{ steps.date.outputs.date }}.diff" >> $GITHUB_OUTPUT
           echo "PATCH_FILENAME=${REPO_NAME}_${{ steps.date.outputs.date }}.diff" >> $GITHUB_OUTPUT
           echo "Patch file generated: diff/${REPO_NAME}_${{ steps.date.outputs.date }}.diff"
