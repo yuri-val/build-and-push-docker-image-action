@@ -75,7 +75,11 @@ Make sure to set up the following secrets in your repository:
    (`type=registry,mode=max`), so dependency layers are reused across runs and across
    runners — GitHub-hosted and self-hosted alike. The tag shows up in Docker Hub next to
    the image tags; it is not a runnable image.
-4. A new GitHub release is created with an auto-generated changelog.
+4. A new GitHub release is created. Its body is `git log --no-merges --pretty='- %s'`
+   between the previous tag reachable from `HEAD` and `HEAD` itself, and the same range
+   is attached as a `.diff` artifact. Both need real history, which is why the action
+   checks out with `fetch-depth: 0` — it runs after the caller's checkout and would
+   otherwise shallow the workspace back to a single commit.
 5. Telegram notifications are sent at the start of the process, on successful completion, and in case of failure.
 
 ## Author
