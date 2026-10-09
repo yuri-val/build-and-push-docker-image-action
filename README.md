@@ -36,13 +36,14 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # The action pushes a tag and creates a release.
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Build and Push Docker Image
         uses: yuri-val/build-and-push-docker-image-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           telegram_to: ${{ secrets.TELEGRAM_TO }}
           telegram_token: ${{ secrets.TELEGRAM_TOKEN }}
           docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -62,6 +63,20 @@ Make sure to set up the following secrets in your repository:
 - Your repository must contain a `Dockerfile` in the root directory.
 - You need to have a Docker Hub account and create an access token.
 - You need to create a Telegram bot and obtain its token.
+- Self-hosted runners need Actions Runner v2.327.1 or later (Node 24 actions).
+- Add a `.dockerignore` that excludes at least `.git` and `.env*`. The build context is the
+  whole checkout, so a `COPY . .` without it ships your git history and local secrets inside
+  the image. (The action no longer leaves a git token in the checkout, but history and
+  untracked files are still there.)
+
+## Security
+
+- Every action the composite uses is pinned to a commit SHA; Dependabot keeps the pins current.
+- Telegram is called directly with `curl`, so the bot token is only ever sent to
+  `api.telegram.org`. The tag is created with the first-party `actions/github-script`; no
+  third-party code receives the GitHub token except the pinned `ncipollo/release-action`.
+- The checkout runs with `persist-credentials: false`, so no token is left in `.git/config`
+  inside the Docker build context.
 
 ## How it works
 
